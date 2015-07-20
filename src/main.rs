@@ -1,5 +1,6 @@
 #![feature(iter_arith, slice_bytes, append)]
 
+extern crate rand;
 extern crate rustc_serialize as serialize;
 extern crate crypto;
 
@@ -20,6 +21,7 @@ fn main() {
 
             "2.1" => set2::challenge1(),
             "2.2" => set2::challenge2(),
+            "2.3" => set2::challenge3(),
             _ => ()
         }
     }

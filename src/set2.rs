@@ -6,6 +6,8 @@ use std::io::{BufReader, BufRead, Read};
 
 use util::*;
 
+use rand::{Rng, OsRng};
+
 pub fn challenge1() {
     let mut padded = "YELLOW SUBMARINE".as_bytes().to_vec();
 
@@ -25,4 +27,69 @@ pub fn challenge2() {
     let mut output = cbc_decrypt(aes128_decrypt, &data, key, iv);
     
     println!("Result: {:?}", String::from_utf8(output));
+}
+
+pub fn challenge3() {
+    let mut rng = OsRng::new().unwrap();
+
+    let mut key = [0; 16];
+    let mut iv = [0; 16];
+    rng.fill_bytes(&mut key);
+
+    println!("Oracle key: {:?}", key);
+
+    let mut encryption_oracle: Box<FnMut(&[u8]) -> Vec<u8>>;
+
+    fn pad_random(input: &[u8], rng: &mut OsRng) -> Vec<u8> {
+        let prefix_len = rng.gen_range(5, 10);
+        let suffix_len = rng.gen_range(5, 10);
+
+        let mut buf = Vec::<u8>::with_capacity(input.len() + prefix_len + suffix_len);
+        
+        for _ in 0..prefix_len {
+            buf.push(rng.gen());
+        }
+
+        buf.extend(input);
+
+        for _ in 0..suffix_len {
+            buf.push(rng.gen());
+        }
+
+        for _ in 0..(16 - buf.len() % 16) {
+            buf.push(0);
+        }
+
+        buf
+    }
+
+    if rng.gen_weighted_bool(2) {
+        println!("Chose CBC");
+        
+        rng.fill_bytes(&mut iv);
+
+        encryption_oracle =
+            Box::new(|input| 
+                     cbc_encrypt(aes128_encrypt, &pad_random(&input, &mut rng), &key[..], iv));
+    } else {
+        println!("Chose ECB");
+        
+        encryption_oracle =
+            Box::new(|input|
+                     aes128_encrypt(&pad_random(&input, &mut rng), &key[..]));
+    }
+
+    /* Attacker Side */
+    
+    //println!("Oracle test: {:?}", encryption_oracle(b"YELLOW SABMURINE"));
+    
+    let data = [0; 16*4];
+
+    let encrypted_data = encryption_oracle(&data[..]);
+
+    if detect_stateless_encryption(&encrypted_data, 16) {
+        println!("Detected ECB");
+    } else {
+        println!("Detected non-ECB");
+    }
 }

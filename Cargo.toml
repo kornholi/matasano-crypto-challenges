@@ -4,5 +4,6 @@ version = "0.1.0"
 authors = ["Kornelijus Survila <kornholijo@gmail.com>"]
 
 [dependencies]
+rand = "0.3"
 rustc-serialize = "0.3"
 rust-crypto = "*"

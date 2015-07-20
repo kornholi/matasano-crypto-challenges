@@ -5,4 +5,4 @@ authors = ["Kornelijus Survila <kornholijo@gmail.com>"]
 
 [dependencies]
 rustc-serialize = "0.3"
-char-iter = "*"
+rust-crypto = "*"

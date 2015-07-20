@@ -1,6 +1,7 @@
 #![feature(iter_arith)]
 
 extern crate rustc_serialize as serialize;
+extern crate crypto;
 
 //use std::collections::HashMap;
 
@@ -8,7 +9,7 @@ use serialize::base64::{self, ToBase64, FromBase64};
 use serialize::hex::{FromHex, ToHex};
 
 use std::fs::File;
-use std::io::Read;
+use std::io::{BufReader, BufRead, Read, Lines};
 
 fn xor(a: &[u8], b: &[u8]) -> Vec<u8> {
     a.iter().zip(b.iter().cycle()).map(|(x, y)| x^y).collect()
@@ -48,7 +49,7 @@ fn english_score(input: &str) -> f32 {
             ' ' | '\'' | '.' | '!' | '?' | '\r' | '\n' => (),
 
             _ => {
-                not_letters += 2
+                not_letters += 1
             }
         }
     }
@@ -145,8 +146,69 @@ fn challenge1_6() {
     println!("key: {:?} - {:?}", String::from_utf8(key), String::from_utf8(data));
 }
 
+use crypto::aes;
+use crypto::blockmodes::NoPadding;
+
+use crypto::symmetriccipher::{Decryptor, Encryptor};
+use crypto::buffer::{ReadBuffer, WriteBuffer};
+
+fn challenge1_7() {
+    let mut aes = aes::ecb_decryptor(aes::KeySize::KeySize128, "YELLOW SUBMARINE".as_bytes(), NoPadding);
+
+    let mut data = vec!();
+    File::open("data/7.txt").unwrap().read_to_end(&mut data).unwrap();
+    
+    let data = data.from_base64().unwrap();
+
+    let mut final_result = Vec::new();
+    let mut read_buffer = crypto::buffer::RefReadBuffer::new(&data[..]);
+
+    let mut buffer = [0; 4096];
+    let mut write_buffer = crypto::buffer::RefWriteBuffer::new(&mut buffer);
+
+    loop {
+        use crypto::buffer::BufferResult::*;
+
+        let result = aes.decrypt(&mut read_buffer, &mut write_buffer, true).unwrap();
+
+        final_result.extend(write_buffer.take_read_buffer().take_remaining().iter().map(|&i| i));
+
+        match result {
+            BufferUnderflow => break,
+            BufferOverflow => ()
+        }
+    }
+
+    println!("res: {:?}", String::from_utf8(final_result));
+}
+
+fn detect_stateless_encryption(data: &[u8], key_size: usize) -> bool {
+    let mut blocks: Vec<&[u8]> = data.chunks(key_size).collect();
+
+    // If we have duplicate blocks, 
+    // the data might have been encrypted in ECB mode.
+    let len = blocks.len();
+    blocks.sort();
+    blocks.dedup();
+    let dedup_len = blocks.len();
+
+    return len != dedup_len;
+}
+
+fn challenge1_8() {
+    let input = BufReader::new(File::open("data/8.txt").unwrap());
+
+    for line in input.lines() {
+        let data = line.unwrap().from_hex().unwrap();
+
+        if detect_stateless_encryption(&data, 16) {
+            println!("POSSIBLE ECB - {:?}", data);
+        }
+    }
+}
+
 fn main() {
-    return challenge1_6();
+    return challenge1_8();
 
     let input = "Burning 'em, if you ain't quick and nimble
 I go crazy when I hear a cymbal";

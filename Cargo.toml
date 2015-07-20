@@ -1,0 +1,8 @@
+[package]
+name = "crypto_challenges"
+version = "0.1.0"
+authors = ["Kornelijus Survila <kornholijo@gmail.com>"]
+
+[dependencies]
+rustc-serialize = "0.3"
+char-iter = "*"

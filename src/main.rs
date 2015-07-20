@@ -1,4 +1,4 @@
-#![feature(iter_arith)]
+#![feature(iter_arith, slice_bytes, append)]
 
 extern crate rustc_serialize as serialize;
 extern crate crypto;
@@ -19,6 +19,7 @@ fn main() {
             "1.8" => set1::challenge1_8(),
 
             "2.1" => set2::challenge1(),
+            "2.2" => set2::challenge2(),
             _ => ()
         }
     }

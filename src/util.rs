@@ -207,3 +207,31 @@ pub fn cbc_decrypt(decrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[
 
     output
 }
+
+pub fn break_block<F: Fn(&[u8]) -> Vec<u8>>(oracle_fn: F, data: &mut [u8], offset: usize, block_size: usize) {
+    let (prev_blocks, block) = data.split_at_mut(offset);
+    let block = &mut block[..];
+
+    if offset >= block_size {
+        let prev_block = &prev_blocks[offset - block_size..offset];
+        bytes::copy_memory(prev_block, block);
+    }
+
+    for i in 0..block_size {
+        let needle_block = oracle_fn(&block[..block_size-i-1]);
+
+        for i in 1..block_size {
+            block[i - 1] = block[i];
+        }
+
+        for b in 0..256 {
+            block[block_size - 1] = b as u8;
+
+            let test_block = oracle_fn(block);
+
+            if needle_block[offset..offset+block_size] == test_block[..block_size] {
+                break
+            }
+        }
+    }
+}

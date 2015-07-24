@@ -90,3 +90,58 @@ pub fn challenge11() {
         println!("Detected non-ECB");
     }
 }
+
+pub fn challenge12() {
+    let mut rng = OsRng::new().unwrap();
+
+    let mut key = [0; 16];
+    rng.fill_bytes(&mut key);
+
+    let suffix = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
+aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
+dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
+YnkK".from_base64().unwrap();
+
+    let encryption_oracle = |data: &[u8]| -> Vec<u8> {
+        let mut input_data = [data, &suffix[..]].concat();
+        pcks7_pad(&mut input_data, 16);
+        aes128_encrypt(&input_data, &key)
+    };
+
+    /* Attacker side */
+
+    let input = vec!['A' as u8; 40];
+
+    let mut out = encryption_oracle(&[]);
+    let empty_len = out.len();
+
+    let mut secret_padding = 0;
+
+    // Detect block size and length of secret
+    for i in 1..40 {
+        out = encryption_oracle(&input[..i]);
+
+        if out.len() > empty_len {
+            secret_padding = i;
+            break
+        }
+    }
+
+    let block_size = out.len() - empty_len;
+    let secret_len = empty_len - secret_padding;
+
+    let out = encryption_oracle(&input[..2 * block_size]);
+    let is_ecb = detect_stateless_encryption(&out, block_size);
+
+    println!("Block size: {}, ECB: {}, Secret length: {}", block_size, is_ecb, secret_len);
+
+    let mut secret = vec![0; empty_len];
+
+    for i in (0..secret.len()).step_by(block_size) {
+        break_block(|data| encryption_oracle(data), &mut secret, i, block_size);
+    }
+
+    secret.truncate(secret_len);
+
+    println!("Decrypted secret: {:?}", String::from_utf8(secret));
+}

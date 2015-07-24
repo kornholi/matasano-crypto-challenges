@@ -36,8 +36,6 @@ pub fn challenge3() {
     let mut iv = [0; 16];
     rng.fill_bytes(&mut key);
 
-    println!("Oracle key: {:?}", key);
-
     let mut encryption_oracle: Box<FnMut(&[u8]) -> Vec<u8>>;
 
     fn pad_random(input: &[u8], rng: &mut OsRng) -> Vec<u8> {
@@ -56,7 +54,8 @@ pub fn challenge3() {
             buf.push(rng.gen());
         }
 
-        for _ in 0..(16 - buf.len() % 16) {
+        let padding = 16 - buf.len() % 16;
+        for _ in 0..padding {
             buf.push(0);
         }
 
@@ -81,9 +80,7 @@ pub fn challenge3() {
 
     /* Attacker Side */
     
-    //println!("Oracle test: {:?}", encryption_oracle(b"YELLOW SABMURINE"));
-    
-    let data = [0; 16*4];
+    let data = [0; 11+32];
 
     let encrypted_data = encryption_oracle(&data[..]);
 

@@ -1,19 +1,19 @@
-use serialize::base64::{self, ToBase64, FromBase64};
-use serialize::hex::{FromHex, ToHex};
+use serialize::base64::FromBase64;
+use serialize::hex::FromHex;
 
 use std::fs::File;
 use std::io::{BufReader, BufRead, Read};
 
 use util::*;
 
-pub fn challenge1_3() {
+pub fn challenge3() {
     let input = "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736".from_hex().unwrap();
     let best = break_single_xor(&input[..]);
 
     println!("Best match: {:?} - {}", best.1, best.0);
 }
 
-pub fn challenge1_6() {
+pub fn challenge6() {
     let mut input = vec!();
     File::open("data/6.txt").unwrap().read_to_end(&mut input).unwrap();
     
@@ -46,7 +46,7 @@ pub fn challenge1_6() {
     println!("key: {:?} - {:?}", String::from_utf8(key), String::from_utf8(data));
 }
 
-pub fn challenge1_7() {
+pub fn challenge7() {
     let mut data = vec!();
     File::open("data/7.txt").unwrap().read_to_end(&mut data).unwrap();
     
@@ -57,7 +57,7 @@ pub fn challenge1_7() {
     println!("Result: {:?}", String::from_utf8(result));
 }
 
-pub fn challenge1_8() {
+pub fn challenge8() {
     let input = BufReader::new(File::open("data/8.txt").unwrap());
 
     for line in input.lines() {

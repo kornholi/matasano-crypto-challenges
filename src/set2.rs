@@ -4,11 +4,11 @@ use serialize::hex::{FromHex, ToHex};
 use std::fs::File;
 use std::io::{BufReader, BufRead, Read};
 
-use util::*;
-
 use rand::{Rng, OsRng};
 
-pub fn challenge1() {
+use util::*;
+
+pub fn challenge9() {
     let mut padded = "YELLOW SUBMARINE".as_bytes().to_vec();
 
     pcks7_pad(&mut padded, 20);
@@ -16,7 +16,7 @@ pub fn challenge1() {
     println!("Padded: {:?}", padded);
 }
 
-pub fn challenge2() {
+pub fn challenge10() {
     let mut data = vec!();
     File::open("data/10.txt").unwrap().read_to_end(&mut data).unwrap();
     
@@ -24,12 +24,12 @@ pub fn challenge2() {
     let key = b"YELLOW SUBMARINE";
     let iv = [0; 16];
 
-    let mut output = cbc_decrypt(aes128_decrypt, &data, key, iv);
+    let output = cbc_decrypt(aes128_decrypt, &data, key, iv);
     
     println!("Result: {:?}", String::from_utf8(output));
 }
 
-pub fn challenge3() {
+pub fn challenge11() {
     let mut rng = OsRng::new().unwrap();
 
     let mut key = [0; 16];

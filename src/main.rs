@@ -14,14 +14,14 @@ fn main() {
         println!("Challenge {} results:", arg);
 
         match &arg[..] {
-            "1.3" => set1::challenge1_3(),
-            "1.6" => set1::challenge1_6(),
-            "1.7" => set1::challenge1_7(),
-            "1.8" => set1::challenge1_8(),
+            "1.3" => set1::challenge3(),
+            "1.6" => set1::challenge6(),
+            "1.7" => set1::challenge7(),
+            "1.8" => set1::challenge8(),
 
-            "2.1" => set2::challenge1(),
-            "2.2" => set2::challenge2(),
-            "2.3" => set2::challenge3(),
+            "2.1" => set2::challenge9(),
+            "2.2" => set2::challenge10(),
+            "2.3" => set2::challenge11(),
             _ => ()
         }
     }

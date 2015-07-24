@@ -176,13 +176,13 @@ pub fn pcks7_pad(data: &mut Vec<u8>, block_size: usize) {
     }
 }
 
-pub fn cbc_encrypt(fun: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[u8], iv: [u8; 16]) -> Vec<u8> {
+pub fn cbc_encrypt(encrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[u8], iv: [u8; 16]) -> Vec<u8> {
     let mut output = vec!();
     let mut last_block = iv;
     
     for block in data.chunks(16) {
         let in_block = xor(&block, &last_block);
-        let mut out_block = aes128_encrypt(&in_block, key);
+        let mut out_block = encrypt_fn(&in_block, key);
         
         bytes::copy_memory(&out_block, &mut last_block);
 
@@ -192,12 +192,12 @@ pub fn cbc_encrypt(fun: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[u8], iv
     output
 }
 
-pub fn cbc_decrypt(fun: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[u8], iv: [u8; 16]) -> Vec<u8> {
+pub fn cbc_decrypt(decrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[u8], iv: [u8; 16]) -> Vec<u8> {
     let mut output = vec!();
     let mut last_block = iv;
     
     for block in data.chunks(16) {
-        let out_block = aes128_decrypt(&block, key);
+        let out_block = decrypt_fn(&block, key);
         let mut out_block = xor(&out_block, &last_block);
         
         bytes::copy_memory(&block, &mut last_block);

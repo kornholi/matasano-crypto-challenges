@@ -1,4 +1,4 @@
-#![feature(iter_arith, slice_bytes, append, step_by)]
+#![feature(iter_arith, clone_from_slice, step_by)]
 #![allow(unused_imports)]
 
 extern crate rand;

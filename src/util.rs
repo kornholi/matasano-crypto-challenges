@@ -1,7 +1,8 @@
 use std::f32;
-use std::ops::Range;use crypto::aes;
-use std::slice::bytes;
+use std::ops::Range;
+use std::io::Write;
 
+use crypto::aes;
 use crypto::blockmodes::NoPadding;
 use crypto::symmetriccipher::{Decryptor, Encryptor};
 
@@ -183,9 +184,8 @@ pub fn cbc_encrypt(encrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[
     for block in data.chunks(16) {
         let in_block = xor(&block, &last_block);
         let mut out_block = encrypt_fn(&in_block, key);
-        
-        bytes::copy_memory(&out_block, &mut last_block);
-
+       
+        last_block.clone_from_slice(&out_block);
         output.append(&mut out_block);
     }
 
@@ -200,8 +200,7 @@ pub fn cbc_decrypt(decrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[
         let out_block = decrypt_fn(&block, key);
         let mut out_block = xor(&out_block, &last_block);
         
-        bytes::copy_memory(&block, &mut last_block);
-
+        last_block.clone_from_slice(&out_block);
         output.append(&mut out_block);
     }
 
@@ -214,7 +213,7 @@ pub fn break_block<F: Fn(&[u8]) -> Vec<u8>>(oracle_fn: F, data: &mut [u8], offse
 
     if offset >= block_size {
         let prev_block = &prev_blocks[offset - block_size..offset];
-        bytes::copy_memory(prev_block, block);
+        block.clone_from_slice(prev_block);
     }
 
     for i in 0..block_size {

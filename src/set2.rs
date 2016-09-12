@@ -17,7 +17,7 @@ pub fn challenge9() {
 }
 
 pub fn challenge10() {
-    let mut data = vec!();
+    let mut data = vec![];
     File::open("data/10.txt").unwrap().read_to_end(&mut data).unwrap();
     
     let data = data.from_base64().unwrap();    
@@ -79,7 +79,6 @@ pub fn challenge11() {
     }
 
     /* Attacker Side */
-    
     let data = [0; 11+32];
 
     let encrypted_data = encryption_oracle(&data[..]);
@@ -109,8 +108,7 @@ YnkK".from_base64().unwrap();
     };
 
     /* Attacker side */
-
-    let input = vec!['A' as u8; 40];
+    let input = vec![b'A'; 40];
 
     let mut out = encryption_oracle(&[]);
     let empty_len = out.len();
@@ -138,10 +136,15 @@ YnkK".from_base64().unwrap();
     let mut secret = vec![0; empty_len];
 
     for i in (0..secret.len()).step_by(block_size) {
-        break_block(|data| encryption_oracle(data), &mut secret, i, block_size);
+        break_block(&encryption_oracle, &mut secret, i, block_size);
     }
 
     secret.truncate(secret_len);
 
     println!("Decrypted secret: {:?}", String::from_utf8(secret));
+}
+
+/* ECB cut-and-paste */
+pub fn challenge13() {
+
 }

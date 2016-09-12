@@ -1,6 +1,5 @@
 use std::f32;
 use std::ops::Range;
-use std::io::Write;
 
 use crypto::aes;
 use crypto::blockmodes::NoPadding;
@@ -185,7 +184,7 @@ pub fn cbc_encrypt(encrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[
         let in_block = xor(&block, &last_block);
         let mut out_block = encrypt_fn(&in_block, key);
        
-        last_block.clone_from_slice(&out_block);
+        last_block.copy_from_slice(&out_block);
         output.append(&mut out_block);
     }
 
@@ -200,7 +199,7 @@ pub fn cbc_decrypt(decrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[
         let out_block = decrypt_fn(&block, key);
         let mut out_block = xor(&out_block, &last_block);
         
-        last_block.clone_from_slice(&out_block);
+        last_block.copy_from_slice(&out_block);
         output.append(&mut out_block);
     }
 
@@ -213,7 +212,7 @@ pub fn break_block<F: Fn(&[u8]) -> Vec<u8>>(oracle_fn: F, data: &mut [u8], offse
 
     if offset >= block_size {
         let prev_block = &prev_blocks[offset - block_size..offset];
-        block.clone_from_slice(prev_block);
+        block[..block_size].copy_from_slice(prev_block);
     }
 
     for i in 0..block_size {

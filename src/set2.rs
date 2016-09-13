@@ -1,8 +1,11 @@
 use serialize::base64::{self, ToBase64, FromBase64};
 use serialize::hex::{FromHex, ToHex};
 
+use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufReader, BufRead, Read};
+use std::str;
 
 use rand::{Rng, OsRng};
 
@@ -10,8 +13,7 @@ use util::*;
 
 pub fn challenge9() {
     let mut padded = "YELLOW SUBMARINE".as_bytes().to_vec();
-
-    pcks7_pad(&mut padded, 20);
+    pkcs7_pad(&mut padded, 20);
 
     println!("Padded: {:?}", padded);
 }
@@ -103,7 +105,7 @@ YnkK".from_base64().unwrap();
 
     let encryption_oracle = |data: &[u8]| -> Vec<u8> {
         let mut input_data = [data, &suffix[..]].concat();
-        pcks7_pad(&mut input_data, 16);
+        pkcs7_pad(&mut input_data, 16);
         aes128_encrypt(&input_data, &key)
     };
 
@@ -146,5 +148,88 @@ YnkK".from_base64().unwrap();
 
 /* ECB cut-and-paste */
 pub fn challenge13() {
+    fn parse_kv(input: &str) -> BTreeMap<String, String> {
+        let mut h = BTreeMap::new();
 
+        for elem in input.split('&') {
+            let mut kv = elem.splitn(2, '=');
+
+            let k = kv.next().unwrap();
+            let v = kv.next().unwrap();
+
+            h.insert(k.to_string(), v.to_string());
+        }
+
+        h
+    }
+
+    fn encode_kv(h: BTreeMap<&str, Cow<str>>) -> String {
+        let mut s = String::new();
+
+        for (k, v) in &h {
+            s.push_str(k);
+            s.push('=');
+            s.push_str(v);
+            s.push('&');
+        }
+
+        s.pop(); // Remove last &
+
+        s
+    }
+
+    fn profile_for(email: &str) -> BTreeMap<&str, Cow<str>> {
+        let mut h = BTreeMap::new();
+
+        let safe_email = email.replace("&", "").replace("=", "");            
+
+        h.insert("email", Cow::Owned(safe_email));
+        h.insert("uid", Cow::Borrowed("10"));
+        h.insert("role", Cow::Borrowed("user"));
+
+        h
+    }
+
+    let mut rng = OsRng::new().unwrap();
+    let mut key = [0; 16];
+    rng.fill_bytes(&mut key);
+
+    let retrieve_profile = |email: &str| -> Vec<u8> {
+        let mut kv = encode_kv(profile_for(email)).into_bytes();
+    
+        pkcs7_pad(&mut kv, 16);
+        aes128_encrypt(&kv, &key)
+    };
+
+    let load_profile = |data: &[u8]| -> BTreeMap<String, String> {
+        let mut decrypted = aes128_decrypt(data, &key);
+
+        // Naive PKCS7 removal
+        if decrypted[decrypted.len() - 1] < 16 {
+            let end = decrypted.len() - decrypted[decrypted.len() - 1] as usize;
+            decrypted.truncate(end);
+        }
+
+        parse_kv(&str::from_utf8(&decrypted).unwrap())
+    };
+
+    // Attacker
+    let mut profile = retrieve_profile("foo@bar123456789.com");
+
+    let mut source_email = String::new();
+    source_email.push_str("foo@bar123456789.comxrolex");
+    
+    // Force a new block to be just "admin" padded with pkcs#7 
+    source_email.push_str("admin");
+    for _ in 0..(16 - 5) {
+        source_email.push((16 - 5) as u8 as char);
+    }
+    
+    let source_profile = retrieve_profile(&source_email);
+    println!("original: {:?}", load_profile(&profile));
+
+    // Copy the evil 3rd block into our profile
+    // "email=foo......" "..........&role=" "admin.........."
+    profile[32..32+16].copy_from_slice(&source_profile[32..32+16]);
+    println!("evil: {:?}", load_profile(&profile)); 
 }

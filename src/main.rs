@@ -15,16 +15,17 @@ fn main() {
         println!("Challenge {} results:", arg);
 
         match &arg[..] {
-            "1.3" => set1::challenge3(),
-            "1.6" => set1::challenge6(),
-            "1.7" => set1::challenge7(),
-            "1.8" => set1::challenge8(),
+            "3" => set1::challenge3(),
+            "6" => set1::challenge6(),
+            "7" => set1::challenge7(),
+            "8" => set1::challenge8(),
 
-            "2.1" => set2::challenge9(),
-            "2.2" => set2::challenge10(),
-            "2.3" => set2::challenge11(),
-            "2.4" => set2::challenge12(),
-            _ => ()
+            "9" => set2::challenge9(),
+            "10" => set2::challenge10(),
+            "11" => set2::challenge11(),
+            "12" => set2::challenge12(),
+            "13" => set2::challenge13(),
+            _ => println!("Unknown challenge")
         }
     }
 }

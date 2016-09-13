@@ -166,7 +166,7 @@ pub fn aes128_encrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
     final_result
 }
 
-pub fn pcks7_pad(data: &mut Vec<u8>, block_size: usize) {
+pub fn pkcs7_pad(data: &mut Vec<u8>, block_size: usize) {
     let n = block_size - (data.len() % block_size);
 
     assert!(n < 0xFF);

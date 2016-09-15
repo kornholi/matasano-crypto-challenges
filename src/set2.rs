@@ -233,3 +233,145 @@ pub fn challenge13() {
     profile[32..32+16].copy_from_slice(&source_profile[32..32+16]);
     println!("evil: {:?}", load_profile(&profile)); 
 }
+
+pub fn challenge14() {
+    let mut rng = OsRng::new().unwrap();
+
+    let mut key = [0; 16];
+    rng.fill_bytes(&mut key);
+
+    let suffix = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
+aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
+dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
+YnkK".from_base64().unwrap();
+
+    let num_prefix_bytes = rng.gen::<u8>() as usize;
+    let mut prefix = vec![0; num_prefix_bytes];
+    rng.fill_bytes(&mut prefix);
+
+    let encryption_oracle = |data: &[u8]| -> Vec<u8> {
+        let mut input_data = [&prefix[..], data, &suffix[..]].concat();
+        pkcs7_pad(&mut input_data, 16);
+        aes128_encrypt(&input_data, &key)
+    };
+
+    /* Attacker side */
+    let empty_len = encryption_oracle(&[]).len();
+
+    // Detect block size and length of secret
+    let input = vec![b'A'; 48];
+    let mut secret_padding = 0;
+    let mut block_size = 0;
+
+    for i in 1..48 {
+        let out = encryption_oracle(&input[..i]);
+
+        if out.len() > empty_len {
+            secret_padding = i;
+            block_size = out.len() - empty_len;
+            break
+        }
+    }
+
+    let out = encryption_oracle(&input[..3 * block_size]);
+
+    println!("Block size: {}", block_size);
+
+    let mut offset = 0;
+    for (i, (a, b)) in out.chunks(block_size).zip(out.chunks(block_size).skip(1)).enumerate() {
+        if a == b {
+            offset = i * block_size;
+            break;
+        }
+    }
+
+    // Find prefix len
+    let mut prefix_len = 3 * block_size;
+    loop {
+        let out = encryption_oracle(&input[..prefix_len]);
+        let is_ecb = detect_stateless_encryption(&out, block_size);
+
+        if !is_ecb {
+            prefix_len = prefix_len + 1 - 2 * block_size;
+            break
+        }
+
+        prefix_len -= 1;
+    }
+
+    let secret_len = empty_len - (offset - prefix_len) - secret_padding;
+    println!("Found offset {} n {} -> secret len {}", offset, prefix_len, secret_len);
+
+    let input_prefix = vec![0; prefix_len];
+    let mut secret = vec![0; secret_len + (block_size - secret_len % block_size)];
+
+    let adjusted_oracle = |input: &[u8]| {
+        let input_data = [&input_prefix[..], &input].concat();
+        let mut output = encryption_oracle(&input_data);
+        output.drain(..offset).count();
+        output
+    };
+
+    for i in (0..secret_len).step_by(block_size) {
+        break_block(&adjusted_oracle, &mut secret, i, block_size);
+    }
+
+    secret.truncate(secret_len);
+    println!("Decrypted secret: {:?}", String::from_utf8(secret));
+}
+
+#[test]
+pub fn challenge15() {
+    assert_eq!(true, pkcs7_validate(&[1]));
+    assert_eq!(true, pkcs7_validate(&[1, 1]));
+    assert_eq!(true, pkcs7_validate(&[2, 1]));
+    assert_eq!(true, pkcs7_validate(&[2, 2]));
+    
+    assert_eq!(false, pkcs7_validate(&[2]));
+    assert_eq!(false, pkcs7_validate(&[1, 2]));
+    assert_eq!(false, pkcs7_validate(&[4, 4, 4]));
+}
+
+/* CRC bit-flipping attacks */
+pub fn challenge16() {
+    let mut rng = OsRng::new().unwrap();
+
+    let mut key = [0; 16];
+    rng.fill_bytes(&mut key);
+
+    let mut iv = [0; 16];
+    rng.fill_bytes(&mut iv);
+
+    let prefix = "comment1=cooking%20MCs;userdata=";
+    let suffix = ";comment2=%20like%20a%20pound%20of%20bacon";
+
+    let save = |input: &str| {
+        let mut safe_input = [&prefix, &input.replace(";", "%3B").replace("=", "%3D")[..], &suffix].concat().into_bytes();
+        pkcs7_pad(&mut safe_input, 16);
+
+        cbc_encrypt(aes128_encrypt, &safe_input, &key, iv.clone())
+    };
+
+    let load = |input: &[u8]| {
+        let mut output = cbc_decrypt(aes128_decrypt, input, &key, iv.clone());
+
+        // Naive PKCS7 removal
+        if output[output.len() - 1] < 16 {
+            let end = output.len() - output[output.len() - 1] as usize;
+            output.truncate(end);
+        }
+
+        output
+    };
+
+    let mut ciphertext = save("?admin?true");
+
+    // Flip ?s to ; and =
+    ciphertext[0 + 16] ^= 4;
+    ciphertext[6 + 16] ^= 2;
+
+    let decrypted = load(&ciphertext[..]);
+    let decrypted = String::from_utf8_lossy(&decrypted[..]);
+
+    println!("{:?} -> admin = {}", decrypted, decrypted.contains(";admin=true;"));
+}

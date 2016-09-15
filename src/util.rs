@@ -64,7 +64,7 @@ pub fn break_single_xor(input: &[u8]) -> (String, u8) {
     let mut best_key = 0;
 
     for key in 1..0xFF {
-        let enc = xor(input, &vec!(key));
+        let enc = xor(input, &[key]);
 
         let enc_str = match String::from_utf8(enc) {
             Ok(s) => s,
@@ -107,8 +107,8 @@ pub fn guess_key_size(data: &[u8], range: Range<usize>) -> usize {
 }
 
 // 1.8
-pub fn detect_stateless_encryption(data: &[u8], key_size: usize) -> bool {
-    let mut blocks: Vec<&[u8]> = data.chunks(key_size).collect();
+pub fn detect_stateless_encryption(data: &[u8], block_size: usize) -> bool {
+    let mut blocks: Vec<&[u8]> = data.chunks(block_size).collect();
 
     // If we have duplicate blocks, 
     // the data might have been encrypted in ECB mode.
@@ -117,7 +117,7 @@ pub fn detect_stateless_encryption(data: &[u8], key_size: usize) -> bool {
     blocks.dedup();
     let dedup_len = blocks.len();
 
-    return len != dedup_len;
+    len != dedup_len
 }
 
 pub fn aes128_decrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
@@ -176,8 +176,21 @@ pub fn pkcs7_pad(data: &mut Vec<u8>, block_size: usize) {
     }
 }
 
+pub fn pkcs7_validate(data: &[u8]) -> bool {
+    if data.len() == 0 {
+        return false;
+    }
+
+    let padding = data[data.len() - 1];
+    if data.len() < padding as usize {
+        return false;
+    }
+
+    data[data.len() - padding as usize..].iter().all(|&x| x == padding)
+}
+
 pub fn cbc_encrypt(encrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[u8], iv: [u8; 16]) -> Vec<u8> {
-    let mut output = vec!();
+    let mut output = vec![];
     let mut last_block = iv;
     
     for block in data.chunks(16) {
@@ -192,14 +205,14 @@ pub fn cbc_encrypt(encrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[
 }
 
 pub fn cbc_decrypt(decrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[u8], iv: [u8; 16]) -> Vec<u8> {
-    let mut output = vec!();
+    let mut output = vec![];
     let mut last_block = iv;
     
     for block in data.chunks(16) {
         let out_block = decrypt_fn(&block, key);
         let mut out_block = xor(&out_block, &last_block);
         
-        last_block.copy_from_slice(&out_block);
+        last_block.copy_from_slice(&block);
         output.append(&mut out_block);
     }
 
@@ -216,7 +229,7 @@ pub fn break_block<F: Fn(&[u8]) -> Vec<u8>>(oracle_fn: F, data: &mut [u8], offse
     }
 
     for i in 0..block_size {
-        let needle_block = oracle_fn(&block[..block_size-i-1]);
+        let needle_block = &oracle_fn(&block[..block_size-i-1]);
 
         for i in 1..block_size {
             block[i - 1] = block[i];
@@ -224,8 +237,7 @@ pub fn break_block<F: Fn(&[u8]) -> Vec<u8>>(oracle_fn: F, data: &mut [u8], offse
 
         for b in 0..256 {
             block[block_size - 1] = b as u8;
-
-            let test_block = oracle_fn(block);
+            let test_block = &oracle_fn(block);
 
             if needle_block[offset..offset+block_size] == test_block[..block_size] {
                 break

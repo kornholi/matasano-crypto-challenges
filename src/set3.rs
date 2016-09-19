@@ -113,3 +113,41 @@ pub fn challenge18() {
 
     assert!(&output[..] == "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby ");
 }
+
+pub fn challenge20() {
+    let mut rng = OsRng::new().unwrap();
+
+    let mut key = [0; 16];
+    rng.fill_bytes(&mut key);
+
+    let mut inputs = vec![];
+    for line in include_str!("../data/20.txt").lines() { 
+        let mut line = line.from_base64().unwrap();
+        ctr_encrypt(&mut line, &key, 0);
+        inputs.push(line);
+    }
+
+    let max_len = inputs.iter().map(|ref x| x.len()).max().unwrap();
+    let mut blocks = Vec::with_capacity(max_len);
+
+    for _ in 0..max_len {
+        blocks.push(Vec::new());
+    }
+
+    for input in &inputs {
+        for (i, &x) in input.iter().enumerate() {
+            blocks[i].push(x);
+        }
+    }
+
+    let mut recovered_key = Vec::with_capacity(max_len);
+
+    for block in &blocks {
+        let best = break_single_xor(&block);
+        recovered_key.push(best.1);
+    }
+
+    for input in &inputs {
+        println!("{}", String::from_utf8_lossy(&xor(input, &recovered_key)));
+    }
+}

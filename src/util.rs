@@ -11,7 +11,7 @@ use crypto::buffer::{ReadBuffer, WriteBuffer};
 use crypto::buffer::{RefReadBuffer, RefWriteBuffer};
 
 // A -> Z
-const ENGLISH_FREQUENCY: [f32; 26] = [0.08167, 0.01492, 0.02782,
+const ENGLISH_FREQUENCY: [f64; 26] = [0.08167, 0.01492, 0.02782,
 0.04253, 0.12702, 0.02228, 0.02015, 0.06094,
 0.06966, 0.00153, 0.00772, 0.04025, 0.02406,
 0.06749, 0.07507, 0.01929, 0.00095, 0.05987,
@@ -26,23 +26,23 @@ pub fn hamming_weight(a: &[u8], b: &[u8]) -> u32 {
     xor(a, b).iter().map(|x| x.count_ones()).sum()
 }
 
-pub fn english_score(input: &str) -> f32 {
+pub fn english_score(input: &str) -> f64 {
     let mut frequency = [0.0; 26];
     let mut not_letters = 0;
 
     for c in input.chars() {
         match c {
             'a'...'z' => {
-                let idx = c as u8 - 'a' as u8; 
+                let idx = c as u8 - b'a'; 
                 frequency[idx as usize] += 1.0;
             },
 
             'A'...'Z' => {
-                let idx = c as u8 - 'A' as u8;
+                let idx = c as u8 - b'A';
                 frequency[idx as usize] += 1.0;
             }
 
-            ' ' | '\'' | '.' | '!' | '?' | '\r' | '\n' => (),
+            ' ' | '\'' | '.' | ',' | ';' | '!' | '?' | '/' | '\r' | '\n' => (),
 
             _ => {
                 not_letters += 1
@@ -51,12 +51,12 @@ pub fn english_score(input: &str) -> f32 {
     }
 
     // Cosine similarity
-    let sum: f32 = input.len() as f32;//frequency.iter().sum();
+    let sum: f64 = input.len() as f64;//frequency.iter().sum();
     
-    let freq_len: f32 = frequency.iter().map(|x| x*x/(sum*sum)).sum::<f32>().sqrt();
-    let product: f32 = frequency.iter().zip(ENGLISH_FREQUENCY.iter()).map(|(x, y)| x/sum*y).sum();
+    let freq_len: f64 = frequency.iter().map(|x| x*x/(sum*sum)).sum::<f64>().sqrt();
+    let product: f64 = frequency.iter().zip(ENGLISH_FREQUENCY.iter()).map(|(x, y)| x/sum*y).sum();
 
-    let text_ratio = (input.len() as f32 - not_letters as f32) / sum;
+    let text_ratio = (input.len() as f64 - not_letters as f64) / sum;
 
     text_ratio * product / freq_len
 }
@@ -65,18 +65,14 @@ pub fn break_single_xor(input: &[u8]) -> (String, u8) {
     let mut best = (String::new(), 0.0);
     let mut best_key = 0;
 
-    for key in 1..0xFF {
+    for key in 1...255 {
         let enc = xor(input, &[key]);
-
-        let enc_str = match String::from_utf8(enc) {
-            Ok(s) => s,
-            Err(_) => continue
-        };
+        let enc_str = String::from_utf8_lossy(&enc);
 
         let score = english_score(&enc_str);
 
         if score > best.1 {
-            best = (enc_str, score);
+            best = (enc_str.into_owned(), score);
             best_key = key;
         }
     }

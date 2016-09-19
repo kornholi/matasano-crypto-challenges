@@ -12,22 +12,19 @@ use rand::{Rng, OsRng};
 use util::*;
 
 pub fn challenge9() {
-    let mut padded = "YELLOW SUBMARINE".as_bytes().to_vec();
+    let mut padded = b"YELLOW SUBMARINE".to_vec();
     pkcs7_pad(&mut padded, 20);
 
     println!("Padded: {:?}", padded);
 }
 
 pub fn challenge10() {
-    let mut data = vec![];
-    File::open("data/10.txt").unwrap().read_to_end(&mut data).unwrap();
+    let data = include_bytes!("../data/10.txt").from_base64().unwrap();
     
-    let data = data.from_base64().unwrap();    
     let key = b"YELLOW SUBMARINE";
     let iv = [0; 16];
 
     let output = cbc_decrypt(aes128_decrypt, &data, key, &iv);
-    
     println!("Result: {:?}", String::from_utf8(output));
 }
 
@@ -113,7 +110,7 @@ YnkK".from_base64().unwrap();
     let input = vec![b'A'; 40];
 
     let mut out = encryption_oracle(&[]);
-    let empty_len = out.len();
+    let base_len = out.len();
 
     let mut secret_padding = 0;
 
@@ -121,21 +118,21 @@ YnkK".from_base64().unwrap();
     for i in 1..40 {
         out = encryption_oracle(&input[..i]);
 
-        if out.len() > empty_len {
+        if out.len() > base_len {
             secret_padding = i;
             break
         }
     }
 
-    let block_size = out.len() - empty_len;
-    let secret_len = empty_len - secret_padding;
+    let block_size = out.len() - base_len;
+    let secret_len = base_len - secret_padding;
 
     let out = encryption_oracle(&input[..2 * block_size]);
     let is_ecb = detect_stateless_encryption(&out, block_size);
 
     println!("Block size: {}, ECB: {}, Secret length: {}", block_size, is_ecb, secret_len);
 
-    let mut secret = vec![0; empty_len];
+    let mut secret = vec![0; base_len];
 
     for i in (0..secret.len()).step_by(block_size) {
         break_block(&encryption_oracle, &mut secret, i, block_size);
@@ -251,7 +248,7 @@ YnkK".from_base64().unwrap();
     };
 
     /* Attacker side */
-    let empty_len = encryption_oracle(&[]).len();
+    let base_len = encryption_oracle(&[]).len();
 
     // Detect block size and length of secret
     let input = vec![b'A'; 48];
@@ -261,9 +258,9 @@ YnkK".from_base64().unwrap();
     for i in 1..48 {
         let out = encryption_oracle(&input[..i]);
 
-        if out.len() > empty_len {
+        if out.len() > base_len {
             secret_padding = i;
-            block_size = out.len() - empty_len;
+            block_size = out.len() - base_len;
             break
         }
     }
@@ -294,7 +291,7 @@ YnkK".from_base64().unwrap();
         prefix_len -= 1;
     }
 
-    let secret_len = empty_len - (offset - prefix_len) - secret_padding;
+    let secret_len = base_len - (offset - prefix_len) - secret_padding;
     println!("Found offset {} n {} -> secret len {}", offset, prefix_len, secret_len);
 
     let input_prefix = vec![0; prefix_len];

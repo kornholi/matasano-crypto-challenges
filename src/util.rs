@@ -1,6 +1,8 @@
 use std::f32;
 use std::ops::Range;
 
+use byteorder::{LittleEndian, ByteOrder};
+
 use crypto::aes;
 use crypto::blockmodes::NoPadding;
 use crypto::symmetriccipher::{Decryptor, Encryptor};
@@ -125,7 +127,7 @@ pub fn aes128_decrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
 
     let mut buffer = [0; 1024];
     let mut final_result = Vec::new();
-    let mut read_buffer = RefReadBuffer::new(&data[..]);
+    let mut read_buffer = RefReadBuffer::new(&data);
     let mut write_buffer = RefWriteBuffer::new(&mut buffer);
 
     loop {
@@ -148,7 +150,7 @@ pub fn aes128_encrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
 
     let mut buffer = [0; 1024];
     let mut final_result = Vec::new();
-    let mut read_buffer = RefReadBuffer::new(&data[..]);
+    let mut read_buffer = RefReadBuffer::new(&data);
     let mut write_buffer = RefWriteBuffer::new(&mut buffer);
 
     loop {
@@ -240,11 +242,10 @@ pub fn cbc_decrypt<F>(decrypt_fn: F, data: &[u8], key: &[u8], iv: &[u8]) -> Vec<
     output
 }
 
-pub fn break_block<F>(oracle_fn: F, data: &mut [u8], offset: usize, block_size: usize)
+pub fn break_block<F>(oracle_fn: &F, data: &mut [u8], offset: usize, block_size: usize)
     where F: Fn(&[u8]) -> Vec<u8>
 {
-    let (prev_blocks, block) = data.split_at_mut(offset);
-    let block = &mut block[..];
+    let (prev_blocks, mut block) = data.split_at_mut(offset);
 
     if offset >= block_size {
         let prev_block = &prev_blocks[offset - block_size..offset];
@@ -252,7 +253,7 @@ pub fn break_block<F>(oracle_fn: F, data: &mut [u8], offset: usize, block_size: 
     }
 
     for i in 0..block_size {
-        let needle_block = &oracle_fn(&block[..block_size-i-1]);
+        let needle_block = oracle_fn(&block[..block_size-i-1]);
 
         for i in 1..block_size {
             block[i - 1] = block[i];
@@ -260,11 +261,26 @@ pub fn break_block<F>(oracle_fn: F, data: &mut [u8], offset: usize, block_size: 
 
         for b in 0...255 {
             block[block_size - 1] = b;
-            let test_block = &oracle_fn(block);
+            let test_block = oracle_fn(block);
 
             if needle_block[offset..offset+block_size] == test_block[..block_size] {
                 break
             }
+        }
+    }
+}
+
+pub fn ctr_encrypt(data: &mut [u8], key: &[u8], nonce: u64) {
+    let mut counter = [0; 16];
+
+    LittleEndian::write_u64(&mut counter, nonce);
+
+    for (i, block) in data.chunks_mut(16).enumerate() {
+        LittleEndian::write_u64(&mut counter[8..], i as u64);
+        let keystream = aes128_encrypt(&counter, key);
+
+        for (a, &k) in block.iter_mut().zip(keystream.iter()) {
+            *a ^= k;
         }
     }
 }

@@ -7,3 +7,4 @@ authors = ["Kornelijus Survila <kornholijo@gmail.com>"]
 rand = "*"
 rustc-serialize = "*"
 rust-crypto = "*"
+byteorder = "*"

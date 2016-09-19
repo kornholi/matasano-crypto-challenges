@@ -104,3 +104,12 @@ pub fn challenge17() {
     }
 }
 
+#[test]
+pub fn challenge18() {
+    let mut input = "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==".from_base64().unwrap();
+    ctr_encrypt(&mut input, b"YELLOW SUBMARINE", 0);
+
+    let output = String::from_utf8(input).unwrap();
+
+    assert!(&output[..] == "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby ");
+}

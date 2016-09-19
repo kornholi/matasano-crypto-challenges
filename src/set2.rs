@@ -26,7 +26,7 @@ pub fn challenge10() {
     let key = b"YELLOW SUBMARINE";
     let iv = [0; 16];
 
-    let output = cbc_decrypt(aes128_decrypt, &data, key, iv);
+    let output = cbc_decrypt(aes128_decrypt, &data, key, &iv);
     
     println!("Result: {:?}", String::from_utf8(output));
 }
@@ -71,7 +71,7 @@ pub fn challenge11() {
 
         encryption_oracle =
             Box::new(|input| 
-                     cbc_encrypt(aes128_encrypt, &pad_random(&input, &mut rng), &key[..], iv));
+                     cbc_encrypt(aes128_encrypt, &pad_random(&input, &mut rng), &key[..], &iv));
     } else {
         println!("Chose ECB");
         
@@ -83,7 +83,7 @@ pub fn challenge11() {
     /* Attacker Side */
     let data = [0; 11+32];
 
-    let encrypted_data = encryption_oracle(&data[..]);
+    let encrypted_data = encryption_oracle(&data);
 
     if detect_stateless_encryption(&encrypted_data, 16) {
         println!("Detected ECB");
@@ -203,12 +203,7 @@ pub fn challenge13() {
 
     let load_profile = |data: &[u8]| -> BTreeMap<String, String> {
         let mut decrypted = aes128_decrypt(data, &key);
-
-        // Naive PKCS7 removal
-        if decrypted[decrypted.len() - 1] < 16 {
-            let end = decrypted.len() - decrypted[decrypted.len() - 1] as usize;
-            decrypted.truncate(end);
-        }
+        pkcs7_remove(&mut decrypted);
 
         parse_kv(&str::from_utf8(&decrypted).unwrap())
     };
@@ -327,6 +322,7 @@ pub fn challenge15() {
     assert_eq!(true, pkcs7_validate(&[2, 1]));
     assert_eq!(true, pkcs7_validate(&[2, 2]));
     
+    assert_eq!(false, pkcs7_validate(&[0]));
     assert_eq!(false, pkcs7_validate(&[2]));
     assert_eq!(false, pkcs7_validate(&[1, 2]));
     assert_eq!(false, pkcs7_validate(&[4, 4, 4]));
@@ -349,17 +345,12 @@ pub fn challenge16() {
         let mut safe_input = [&prefix, &input.replace(";", "%3B").replace("=", "%3D")[..], &suffix].concat().into_bytes();
         pkcs7_pad(&mut safe_input, 16);
 
-        cbc_encrypt(aes128_encrypt, &safe_input, &key, iv.clone())
+        cbc_encrypt(aes128_encrypt, &safe_input, &key, &iv)
     };
 
     let load = |input: &[u8]| {
-        let mut output = cbc_decrypt(aes128_decrypt, input, &key, iv.clone());
-
-        // Naive PKCS7 removal
-        if output[output.len() - 1] < 16 {
-            let end = output.len() - output[output.len() - 1] as usize;
-            output.truncate(end);
-        }
+        let mut output = cbc_decrypt(aes128_decrypt, input, &key, &iv);
+        pkcs7_remove(&mut output);
 
         output
     };
@@ -370,8 +361,8 @@ pub fn challenge16() {
     ciphertext[0 + 16] ^= 4;
     ciphertext[6 + 16] ^= 2;
 
-    let decrypted = load(&ciphertext[..]);
-    let decrypted = String::from_utf8_lossy(&decrypted[..]);
+    let decrypted = load(&ciphertext);
+    let decrypted = String::from_utf8_lossy(&decrypted);
 
     println!("{:?} -> admin = {}", decrypted, decrypted.contains(";admin=true;"));
 }

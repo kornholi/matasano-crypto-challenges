@@ -1,4 +1,4 @@
-#![feature(step_by)]
+#![feature(step_by, inclusive_range_syntax)]
 #![allow(unused_imports)]
 
 extern crate rand;

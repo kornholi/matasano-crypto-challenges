@@ -181,17 +181,35 @@ pub fn pkcs7_validate(data: &[u8]) -> bool {
         return false;
     }
 
-    let padding = data[data.len() - 1];
-    if data.len() < padding as usize {
+    let padding = data[data.len() - 1] as usize;
+    if padding == 0 {
         return false;
     }
 
-    data[data.len() - padding as usize..].iter().all(|&x| x == padding)
+    if data.len() < padding {
+        return false;
+    }
+    
+    data[data.len() - padding..].iter().all(|&x| x == padding as u8)
 }
 
-pub fn cbc_encrypt(encrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[u8], iv: [u8; 16]) -> Vec<u8> {
+pub fn pkcs7_remove(data: &mut Vec<u8>) -> bool {
+    if !pkcs7_validate(&data) {
+        return false;
+    }
+
+    let end = data.len() - data[data.len() - 1] as usize;
+    data.truncate(end);
+
+    true
+}
+
+pub fn cbc_encrypt<F>(encrypt_fn: F, data: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8>
+    where F: Fn(&[u8], &[u8]) -> Vec<u8>
+{
     let mut output = vec![];
-    let mut last_block = iv;
+    let mut last_block = [0; 16];
+    last_block.copy_from_slice(iv);
     
     for block in data.chunks(16) {
         let in_block = xor(&block, &last_block);
@@ -204,10 +222,13 @@ pub fn cbc_encrypt(encrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[
     output
 }
 
-pub fn cbc_decrypt(decrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[u8], iv: [u8; 16]) -> Vec<u8> {
+pub fn cbc_decrypt<F>(decrypt_fn: F, data: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8>
+    where F: Fn(&[u8], &[u8]) -> Vec<u8>
+{
     let mut output = vec![];
-    let mut last_block = iv;
-    
+    let mut last_block = [0; 16];
+    last_block.copy_from_slice(iv);
+
     for block in data.chunks(16) {
         let out_block = decrypt_fn(&block, key);
         let mut out_block = xor(&out_block, &last_block);
@@ -219,7 +240,9 @@ pub fn cbc_decrypt(decrypt_fn: fn(&[u8], &[u8]) -> Vec<u8>, data: &[u8], key: &[
     output
 }
 
-pub fn break_block<F: Fn(&[u8]) -> Vec<u8>>(oracle_fn: F, data: &mut [u8], offset: usize, block_size: usize) {
+pub fn break_block<F>(oracle_fn: F, data: &mut [u8], offset: usize, block_size: usize)
+    where F: Fn(&[u8]) -> Vec<u8>
+{
     let (prev_blocks, block) = data.split_at_mut(offset);
     let block = &mut block[..];
 
@@ -235,8 +258,8 @@ pub fn break_block<F: Fn(&[u8]) -> Vec<u8>>(oracle_fn: F, data: &mut [u8], offse
             block[i - 1] = block[i];
         }
 
-        for b in 0..256 {
-            block[block_size - 1] = b as u8;
+        for b in 0...255 {
+            block[block_size - 1] = b;
             let test_block = &oracle_fn(block);
 
             if needle_block[offset..offset+block_size] == test_block[..block_size] {

@@ -166,11 +166,13 @@ impl Mt19937 {
     }
 
     pub fn set_seed(&mut self, seed: u32) {
+        self.index = 624;
         self.mt[0] = seed;
 
         for i in 1..624 {
             self.mt[i] = (1_812_433_253 * (self.mt[i - 1] ^ self.mt[i - 1] >> 30) as usize + i) as u32;
         }
+
     }
 
     pub fn set_mt(&mut self, mt: &[u32]) {
@@ -263,4 +265,35 @@ pub fn challenge23() {
     }
 
     println!("Real RNG: {} Cloned RNG: {}", rng.extract(), evil_rng.extract());
+}
+
+pub fn challenge24() {
+    fn mt_xor(seed: u32, data: &[u8]) -> Vec<u8> {
+        let mut rng = Mt19937::new();
+        rng.set_seed(seed);
+        data.iter().map(|&x| x ^ (rng.extract() as u8)).collect()
+    }
+
+    let mut rng = OsRng::new().unwrap();
+    let mut data = Vec::new();
+
+    let prefix_bytes = rng.gen_range(5, 10);
+    for _ in 0..prefix_bytes {
+        data.push(rng.gen());
+    }
+
+    let kp = b"AAAAAAAAAAAAAA";
+    data.extend_from_slice(kp);
+
+    let enc = mt_xor(23456, &data);
+    println!("{:?}", enc);
+
+    let kp_start = enc.len() - kp.len(); 
+    for test_key in 0...65535 {
+        let dec = mt_xor(test_key, &enc);
+        if &dec[kp_start..] == kp {
+            println!("Found key: {} - {:?}", test_key, dec);
+            break
+        }
+    }
 }

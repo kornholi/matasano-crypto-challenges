@@ -111,7 +111,7 @@ pub fn challenge18() {
 
     let output = String::from_utf8(input).unwrap();
 
-    assert!(&output[..] == "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby ");
+    assert!(&output == "Yo, VIP Let's kick it Ice, Ice, baby Ice, Ice, baby ");
 }
 
 pub fn challenge20() {
@@ -150,4 +150,117 @@ pub fn challenge20() {
     for input in &inputs {
         println!("{}", String::from_utf8_lossy(&xor(input, &recovered_key)));
     }
+}
+
+struct Mt19937 {
+    index: i32,
+    mt: [u32; 624]
+}
+
+impl Mt19937 {
+    pub fn new() -> Mt19937 {
+        Mt19937 {
+            index: 624,
+            mt: [0; 624]
+        }
+    }
+
+    pub fn set_seed(&mut self, seed: u32) {
+        self.mt[0] = seed;
+
+        for i in 1..624 {
+            self.mt[i] = (1_812_433_253 * (self.mt[i - 1] ^ self.mt[i - 1] >> 30) as usize + i) as u32;
+        }
+    }
+
+    pub fn set_mt(&mut self, mt: &[u32]) {
+        self.mt.copy_from_slice(mt);
+    }
+
+    pub fn extract(&mut self) -> u32 {
+        if self.index >= 624 {
+            self.twist();
+        }
+
+        let mut y = self.mt[self.index as usize];
+
+        y ^= y >> 11;
+        y ^= y << 7 & 2636928640;
+        y ^= y << 15 & 4022730752;
+        y ^= y >> 18;
+
+        self.index += 1;
+
+        return y;
+    }
+
+    pub fn twist(&mut self) {
+        for i in 0..624 {
+            let y = (self.mt[i] & 0x80000000) +
+                (self.mt[(i + 1) % 624] & 0x7fffffff);
+
+            self.mt[i] = self.mt[(i + 397) % 624] ^ y >> 1;
+
+            if y % 2 != 0 {
+                self.mt[i] = self.mt[i] ^ 0x9908b0df;
+            }
+        }
+
+        self.index = 0;
+    }
+}
+
+/// Given y = x ^ (x >> shift), recover x
+fn undo_rightshift_xor(mut x: u32, shift: u32) -> u32 {
+    let mut mask = ((1 << shift) - 1) << (32 - shift); 
+
+    // 32 / shift, rounded up
+    let num_parts = (32 + shift - 1) / shift;
+
+    for _ in 0..num_parts {
+        x ^= (x >> shift) & mask;
+        mask >>= shift;
+    }
+
+    x
+}
+
+/// Given y = x ^ ((x << shift) & mask), recover x
+fn undo_leftshift_xor_mask(mut x: u32, shift: u32, given_mask: u32) -> u32 {
+    let mut mask = (1 << shift) - 1; 
+
+    // 32 / shift, rounded up
+    let num_parts = (32 + shift - 1) / shift;
+
+    for _ in 0..num_parts {
+        x ^= (x << shift) & given_mask & mask;
+        mask <<= shift;
+    }
+
+    x
+}
+
+pub fn challenge23() {
+    let mut rng = Mt19937::new();
+    rng.set_seed(1234567);
+
+    let mut state = [0; 624];
+    for i in 0..624 {
+        let mut x = rng.extract();
+        x = undo_rightshift_xor(x, 18);
+        x = undo_leftshift_xor_mask(x, 15, 4022730752);
+        x = undo_leftshift_xor_mask(x, 7, 2636928640);
+        x = undo_rightshift_xor(x, 11);
+
+        state[i] = x;
+    }
+
+    let mut evil_rng = Mt19937::new();
+    evil_rng.set_mt(&state);
+
+    for _ in 0..1000 {
+        assert_eq!(rng.extract(), evil_rng.extract(), "cloned RNG does not match");
+    }
+
+    println!("Real RNG: {} Cloned RNG: {}", rng.extract(), evil_rng.extract());
 }

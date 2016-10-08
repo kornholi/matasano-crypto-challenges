@@ -91,3 +91,55 @@ pub fn challenge26() {
 
     println!("{:?} -> admin = {}", decrypted, decrypted.contains(";admin=true;"))
 }
+
+pub fn challenge27() {
+    let mut rng = OsRng::new().unwrap();
+
+    let mut key = [0; 16];
+    rng.fill_bytes(&mut key);
+
+    let iv = key.clone();
+
+    let message = b"comment1=cooking%20MCs;userdata=supersecretye;comment2=%20like%20a%20pound%20of%20bacon";
+    let mut message = message.to_vec();
+    pkcs7_pad(&mut message, 16);
+    let ciphertext = cbc_encrypt(aes128_encrypt, &message, &key, &iv);    
+
+    let load = |input: &[u8]| {
+        let mut output = cbc_decrypt(aes128_decrypt, input, &key, &iv);
+        
+        if output.iter().any(|&x| x > 0x80) {
+            return Err(output);
+        }     
+        
+        pkcs7_remove(&mut output);
+
+        Ok(())
+    };
+
+    let status = load(&ciphertext);
+    println!("Original ciphertext: {:?}", status);
+    
+    let mut evil_ciphertext = ciphertext.clone();
+    
+    // C3 = C1
+    evil_ciphertext[32..48].copy_from_slice(&ciphertext[0..16]);
+    
+    // C2 = 0
+    evil_ciphertext[16..32].copy_from_slice(&[0; 16]);
+
+    let status = load(&evil_ciphertext);
+    println!("Evil ciphertext: {:?}", status);
+
+    let evil_plaintext = status.unwrap_err();
+    
+    // Key = P1 ^ P3
+    let recovered_key = xor(&evil_plaintext[..16], &evil_plaintext[32..48]);
+    
+    assert_eq!(recovered_key, key);
+    println!("Extracted key: {:?}", recovered_key);
+    
+    let plaintext = cbc_decrypt(aes128_decrypt, &ciphertext, &recovered_key, &recovered_key);    
+    
+    println!("Original message: {:?}", String::from_utf8_lossy(&plaintext));
+}

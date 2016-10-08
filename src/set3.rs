@@ -122,7 +122,7 @@ pub fn challenge20() {
 
     let mut inputs = vec![];
     for line in include_str!("../data/20.txt").lines() { 
-        let mut line = line.from_base64().unwrap();
+        let line = line.from_base64().unwrap();
         let line = ctr_encrypt(&line, &key, 0);
         inputs.push(line);
     }

@@ -37,6 +37,7 @@ fn main() {
             "24" => set3::challenge24(),
                
             "25" => set4::challenge25(),
+            "26" => set4::challenge26(),
 
             _ => println!("Unknown challenge")
         }

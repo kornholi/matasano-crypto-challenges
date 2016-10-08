@@ -20,7 +20,7 @@ pub fn challenge25() {
     let mut key = [0; 16];
     rng.fill_bytes(&mut key);
 
-    ctr_encrypt(&mut data, &key, 0);
+    let mut data = ctr_encrypt(&mut data, &key, 0);
     
     fn ctr_edit<'a, I>(ciphertext: &mut [u8], key: &[u8], mut offset: usize, new_data: I)
         where I: iter::IntoIterator<Item=&'a u8>
@@ -55,4 +55,39 @@ pub fn challenge25() {
     let plaintext: Vec<u8> = xor(&data, &orig_ciphertext); 
 
     println!("{:?}", String::from_utf8_lossy(&plaintext));
+}
+
+pub fn challenge26() {
+    let mut rng = OsRng::new().unwrap();
+
+    let mut key = [0; 16];
+    rng.fill_bytes(&mut key);
+
+    let prefix = "comment1=cooking%20MCs;userdata=";
+    let suffix = ";comment2=%20like%20a%20pound%20of%20bacon";
+
+    let save = |input: &str| {
+        let mut safe_input = [&prefix, &input.replace(";", "%3B").replace("=", "%3D")[..], &suffix].concat().into_bytes();
+        pkcs7_pad(&mut safe_input, 16);
+
+        ctr_encrypt(&safe_input, &key, 0)
+    };
+
+    let load = |input: &[u8]| {
+        let mut output = ctr_encrypt(input, &key, 0);
+        pkcs7_remove(&mut output);
+
+        output
+    };
+
+    let mut ciphertext = save("?admin?true");
+
+    // Flip ?s to ; and =
+    ciphertext[0 + 32] ^= 4;
+    ciphertext[6 + 32] ^= 2;
+
+    let decrypted = load(&ciphertext);
+    let decrypted = String::from_utf8_lossy(&decrypted);
+
+    println!("{:?} -> admin = {}", decrypted, decrypted.contains(";admin=true;"))
 }

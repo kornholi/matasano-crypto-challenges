@@ -11,6 +11,7 @@ mod util;
 mod set1;
 mod set2;
 mod set3;
+mod set4;
 
 fn main() {
     for arg in std::env::args().skip(1) {
@@ -34,6 +35,8 @@ fn main() {
             "20" => set3::challenge20(),
             "23" => set3::challenge23(),
             "24" => set3::challenge24(),
+               
+            "25" => set4::challenge25(),
 
             _ => println!("Unknown challenge")
         }

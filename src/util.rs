@@ -266,7 +266,9 @@ pub fn break_block<F>(oracle_fn: &F, data: &mut [u8], offset: usize, block_size:
     }
 }
 
-pub fn ctr_encrypt(data: &mut [u8], key: &[u8], nonce: u64) {
+pub fn ctr_encrypt(data: &[u8], key: &[u8], nonce: u64) -> Vec<u8> {
+    let mut data = data.to_vec();
+
     let mut counter = [0; 16];
     LittleEndian::write_u64(&mut counter, nonce);
 
@@ -278,4 +280,6 @@ pub fn ctr_encrypt(data: &mut [u8], key: &[u8], nonce: u64) {
             *a ^= k;
         }
     }
+    
+    data
 }

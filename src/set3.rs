@@ -107,7 +107,7 @@ pub fn challenge17() {
 #[test]
 pub fn challenge18() {
     let mut input = "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==".from_base64().unwrap();
-    ctr_encrypt(&mut input, b"YELLOW SUBMARINE", 0);
+    let mut input = ctr_encrypt(&input, b"YELLOW SUBMARINE", 0);
 
     let output = String::from_utf8(input).unwrap();
 
@@ -123,7 +123,7 @@ pub fn challenge20() {
     let mut inputs = vec![];
     for line in include_str!("../data/20.txt").lines() { 
         let mut line = line.from_base64().unwrap();
-        ctr_encrypt(&mut line, &key, 0);
+        let line = ctr_encrypt(&line, &key, 0);
         inputs.push(line);
     }
 

@@ -13,6 +13,10 @@ mod set2;
 mod set3;
 mod set4;
 
+mod cryptoutil;
+mod sha1;
+mod simd;
+
 fn main() {
     for arg in std::env::args().skip(1) {
         println!("Challenge {} results:", arg);

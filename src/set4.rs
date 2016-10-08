@@ -140,6 +140,5 @@ pub fn challenge27() {
     println!("Extracted key: {:?}", recovered_key);
     
     let plaintext = cbc_decrypt(aes128_decrypt, &ciphertext, &recovered_key, &recovered_key);    
-    
     println!("Original message: {:?}", String::from_utf8_lossy(&plaintext));
 }

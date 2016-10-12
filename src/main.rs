@@ -15,6 +15,7 @@ mod set4;
 
 mod cryptoutil;
 mod sha1;
+mod md4;
 mod simd;
 
 fn main() {
@@ -45,6 +46,7 @@ fn main() {
             "27" => set4::challenge27(),
             
             "29" => set4::challenge29(),
+            "30" => set4::challenge30(),
 
             _ => println!("Unknown challenge")
         }

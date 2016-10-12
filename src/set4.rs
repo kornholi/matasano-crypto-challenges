@@ -9,6 +9,10 @@ use rand::{Rng, OsRng};
 use serialize::base64::{self, ToBase64, FromBase64};
 use serialize::hex::{FromHex, ToHex};
 
+use crypto::digest::Digest;
+use sha1::Sha1;
+
+use cryptoutil;
 use util::*;
 
 pub fn challenge25() {
@@ -121,16 +125,13 @@ pub fn challenge27() {
     println!("Original ciphertext: {:?}", status);
     
     let mut evil_ciphertext = ciphertext.clone();
-    
     // C3 = C1
     evil_ciphertext[32..48].copy_from_slice(&ciphertext[0..16]);
-    
     // C2 = 0
     evil_ciphertext[16..32].copy_from_slice(&[0; 16]);
 
     let status = load(&evil_ciphertext);
     println!("Evil ciphertext: {:?}", status);
-
     let evil_plaintext = status.unwrap_err();
     
     // Key = P1 ^ P3
@@ -141,4 +142,80 @@ pub fn challenge27() {
     
     let plaintext = cbc_decrypt(aes128_decrypt, &ciphertext, &recovered_key, &recovered_key);    
     println!("Original message: {:?}", String::from_utf8_lossy(&plaintext));
+}
+
+pub fn challenge29() {
+    fn sign(key: &[u8], message: &[u8]) -> Vec<u8> {
+        let mut h = Sha1::new();
+        h.input(key);
+        h.input(message);
+        
+        let mut r = vec![0; 20];
+        h.result(&mut r);
+        r
+    }
+    
+    fn validate(key: &[u8], message: &[u8], hmac: &[u8]) -> bool {
+        &sign(key, message)[..] == hmac
+    }
+       
+    let key = b"wikb0b0";
+    let message = b"comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
+    let hmac = sign(key, message);    
+
+    fn sha1_pad(buf: &mut Vec<u8>, length: usize) {
+        // Padding
+        buf.push(0x80);
+        buf.extend(iter::repeat(0).take(64 - 8 - 1 - (length % 64)));
+        
+        // Length in bits
+        let mut high_bits = [0; 4];
+        let mut low_bits = [0; 4];
+        let length_bits = length * 8;
+        cryptoutil::write_u32_be(&mut high_bits, (length_bits >> 32) as u32);
+        cryptoutil::write_u32_be(&mut low_bits, length_bits as u32);
+        buf.extend(&high_bits);
+        buf.extend(&low_bits);
+    }
+
+    fn prefix_key_extend(key_len: usize, original_hash: &[u8], message: &[u8], extension: &[u8]) -> (Vec<u8>, Vec<u8>) {
+        let mut state = [0; 5];
+        state[0] = cryptoutil::read_u32_be(&original_hash[0..4]);
+        state[1] = cryptoutil::read_u32_be(&original_hash[4..8]);
+        state[2] = cryptoutil::read_u32_be(&original_hash[8..12]);
+        state[3] = cryptoutil::read_u32_be(&original_hash[12..16]);
+        state[4] = cryptoutil::read_u32_be(&original_hash[16..20]);
+
+        let mut evil_hmac = vec![0; 20];    
+        let mut cloned_hasher = Sha1::new();
+       
+        // original data + padding byte (1) + size in bits (8) rounded up to next 64byte block 
+        let sha_len = (key_len + message.len() + 1 + 8 + 63) / 64 * 64;
+        cloned_hasher.set_state(&state, sha_len as u64 * 8);
+        
+        cloned_hasher.input(extension);
+        cloned_hasher.result(&mut evil_hmac[..]);
+    
+        let mut evil_message = message.to_vec();
+        sha1_pad(&mut evil_message, key_len + message.len());
+        evil_message.extend(extension);
+        
+        (evil_hmac, evil_message)
+    }
+    
+    for candidate_len in 0..24 {
+        let (evil_hmac, evil_message) = prefix_key_extend(candidate_len, &hmac, message, b";admin=true");
+        let valid = validate(key, &evil_message, &evil_hmac);
+       
+        if !valid {
+            continue
+        }
+        
+        println!("Found key length {}", candidate_len);
+
+        println!("evil_hmac: {:?} valid: {}", evil_hmac, valid);
+        println!("evil_message: {:?}", String::from_utf8_lossy(&evil_message));
+        
+        break;
+    }
 }

@@ -399,6 +399,11 @@ impl Sha1 {
         st.reset();
         st
     }
+    
+    pub fn set_state(&mut self, new_state: &[u32; STATE_LEN], length_bits: u64) {
+        self.h = *new_state;
+        self.length_bits = length_bits;
+    }
 }
 
 impl Digest for Sha1 {
@@ -489,11 +494,11 @@ mod tests {
 
         let mut sh = Box::new(Sha1::new());
         for t in tests.iter() {
-            (*sh).input_str(t.input);
+            sh.input_str(t.input);
             sh.result(&mut out);
             assert!(t.output[..] == out[..]);
 
-            let out_str = (*sh).result_str();
+            let out_str = sh.result_str();
             assert_eq!(out_str.len(), 40);
             assert!(&out_str[..] == t.output_str);
 
@@ -507,13 +512,13 @@ mod tests {
             let mut left = len;
             while left > 0 {
                 let take = (left + 1) / 2;
-                (*sh).input_str(&t.input[len - left..take + len - left]);
+                sh.input_str(&t.input[len - left..take + len - left]);
                 left = left - take;
             }
             sh.result(&mut out);
             assert!(t.output[..] == out[..]);
 
-            let out_str = (*sh).result_str();
+            let out_str = sh.result_str();
             assert_eq!(out_str.len(), 40);
             assert!(&out_str[..] == t.output_str);
 
@@ -572,7 +577,7 @@ mod bench {
     pub fn sha1_64k(bh: & mut Bencher) {
         let mut sh = Sha1::new();
         let bytes = [1u8; 65536];
-        bh.iter( || {
+        bh.iter(|| {
             sh.input(&bytes);
         });
         bh.bytes = bytes.len() as u64;
